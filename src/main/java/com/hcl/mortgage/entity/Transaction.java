@@ -33,6 +33,7 @@ public class Transaction implements Serializable {
 	private String fromAccount;
 	private String toAccount;
 	private Double amount;
+	private String DrOrCr;
 	private LocalDate transactionDate;
 	private LocalTime transactionTime;
 
