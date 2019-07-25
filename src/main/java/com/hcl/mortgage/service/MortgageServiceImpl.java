@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,6 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.hcl.mortgage.dto.AccountDetailsDto;
+import com.hcl.mortgage.dto.LoginDto;
 import com.hcl.mortgage.dto.MortgageDetailsDto;
 import com.hcl.mortgage.dto.MortgageDto;
 import com.hcl.mortgage.dto.TransactionDetailsDto;
@@ -32,6 +32,7 @@ import com.hcl.mortgage.repository.AccountRepository;
 import com.hcl.mortgage.repository.CustomerRepository;
 import com.hcl.mortgage.repository.MortgageRepository;
 import com.hcl.mortgage.repository.TransactionRepository;
+import com.hcl.mortgage.util.Constants;
 import com.hcl.mortgage.util.PasswordEncoder;
 
 @Service
@@ -66,7 +67,7 @@ public class MortgageServiceImpl implements IMortgageService {
 		MortgageDetailsDto mortgageDetailsDto = null;
 
 		String birthDay = mortgageDto.getDateOfBirth();
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.DATE_FORMAT);
 		LocalDate dob = LocalDate.parse(birthDay, formatter);
 
 		if (mortgageDto.getPropertyCost() >= 100000 && mortgageDto.getDeposit() > 0) {
@@ -92,8 +93,8 @@ public class MortgageServiceImpl implements IMortgageService {
 
 							transactionalAccount = new Account();
 							transactionalAccount.setBalance(mortgageDto.getPropertyCost() - mortgageDto.getDeposit());
-							transactionalAccount.setAccountNumber("ACC" + random.nextInt(10000));
-							transactionalAccount.setAccountType("Transactional Account");
+							transactionalAccount.setAccountNumber(Constants.TRANSACTIONAL_ACCOUNT_SUFFIX + random.nextInt(10000));
+							transactionalAccount.setAccountType(Constants.TRANSACTION_ACCOUNT);
 							transactionalAccount.setDate(LocalDate.now());
 							transactionalAccount.setCustomer(customer);
 
@@ -101,8 +102,8 @@ public class MortgageServiceImpl implements IMortgageService {
 
 							mortgageAccount = new Account();
 							mortgageAccount.setBalance(-(mortgageDto.getPropertyCost() - mortgageDto.getDeposit()));
-							mortgageAccount.setAccountNumber("MORT" + random.nextInt(10000));
-							mortgageAccount.setAccountType("Mortgage Account");
+							mortgageAccount.setAccountNumber(Constants.MORTGAGE_ACCOUNT_SUFFIX + random.nextInt(10000));
+							mortgageAccount.setAccountType(Constants.MORTGAGE_ACCOUNT);
 							mortgageAccount.setDate(LocalDate.now());
 							mortgageAccount.setCustomer(customer);
 
@@ -118,7 +119,7 @@ public class MortgageServiceImpl implements IMortgageService {
 							mortgageRepository.save(mortgage);
 
 							transaction.setFromAccount(transactionalAccount.getAccountNumber());
-							transaction.setDrOrCr("debit");
+							transaction.setDrOrCr(Constants.DEBIT);
 							transaction.setAmount(mortgageDto.getDeposit());
 							transaction.setTransactionDate(LocalDate.now());
 							transaction.setTransactionTime(LocalTime.now());
@@ -127,7 +128,7 @@ public class MortgageServiceImpl implements IMortgageService {
 							transactionRepository.save(transaction);
 
 							mortgageTransaction.setToAccount(mortgageAccount.getAccountNumber());
-							mortgageTransaction.setDrOrCr("credit");
+							mortgageTransaction.setDrOrCr(Constants.CREDIT);
 							mortgageTransaction.setAmount(mortgageDto.getDeposit());
 							mortgageTransaction.setTransactionDate(LocalDate.now());
 							mortgageTransaction.setTransactionTime(LocalTime.now());
@@ -138,46 +139,49 @@ public class MortgageServiceImpl implements IMortgageService {
 							mortgageDetailsDto.setPassword(customer.getPassword());
 							mortgageDetailsDto.setMortgageNumber(mortgageAccount.getAccountNumber());
 							mortgageDetailsDto.setCustomerName(customer.getCustomerName());
-							mortgageDetailsDto.setMessage("Congratulations, your mortgage has been granted.");
+							mortgageDetailsDto.setMessage(Constants.MORTGAGE_APPROVED_MESSAGE);
 
 							return mortgageDetailsDto;
 
 						} else {
-							throw new MortgageException("You are not eligible for this Loan age should be >18");
+							throw new MortgageException(Constants.CUSTOMER_AGE_MINIMUM_MESSAGE);
 						}
 
 					} else {
-						throw new MortgageException("Please Enter Valid Email and Email Conform Email Should be Same.");
+						throw new MortgageException(Constants.EMAIL_VALIDATION_MESSAGE);
 					}
 
 				} else {
-					throw new MortgageException("Please Enter Valid Phone Number.");
+					throw new MortgageException(Constants.PHONE_VALIDATION_MESSAGE);
 				}
 			}
 
 			else {
-				throw new MortgageException("FirstName or MiddleName or SurName Mut and sshould be alphabhets.");
+				throw new MortgageException(Constants.NAMES_VALIDATION_MESSAGE);
 			}
 		}
 
 		else {
-			throw new MortgageException("Property Cost Minimum 1000000 or Deposit should Not be an Negative amount.");
+			throw new MortgageException(Constants.PROPERTY_COST_VALIDATION_MESSAGE);
 		}
 	}
 
-	public String validateLogin(String loginId, String password) {
-		LOGGER.debug("MortgageServiceImpl:validateLogin {} ", loginId);
-		Optional<Customer> user = customerRepository.findByLoginIdAndPassword(loginId, password);
-		if (user.isPresent()) {
-			return "Logged in successfully.";
+	public List<AccountDetailsDto> validateLogin(LoginDto loginDto) {
+		LOGGER.debug("MortgageServiceImpl:validateLogin {} ", loginDto.getLoginId());
+		List<AccountDetailsDto> accountDetailsDtos = null;
+		Customer customer = customerRepository.findByLoginIdAndPassword(loginDto.getLoginId(), loginDto.getPassword());
+		
+		if (customer!=null) {
+			accountDetailsDtos = new ArrayList<AccountDetailsDto>();
+			accountDetailsDtos = accountSummarry(customer.getCustomerId());
+			return accountDetailsDtos;
 		} else {
-			throw new CustomerNotFoundException("Invlid username or password");
+			throw new CustomerNotFoundException(Constants.CUSTOMER_NOT_FOUND_MESSAGE);
 		}
 	}
 
 	public List<AccountDetailsDto> accountSummarry(Long customerId) {
 		List<Account> accounts = accountRepository.accountSummary(customerId);
-		System.out.println("111111" + accounts.size());
 		List<AccountDetailsDto> accountDetailsDtos = new ArrayList<AccountDetailsDto>();
 		AccountDetailsDto accountDetailsDto = null;
 		for (Account account : accounts) {
@@ -209,8 +213,8 @@ public class MortgageServiceImpl implements IMortgageService {
 				Long customerId = account.getCustomer().getCustomerId();
 				currentCustomerId = customerId;
 				if (currentCustomerId != previousCustomerId) {
-					Account transactionalAccount = getAccount(customerId, "Transactional Account");
-					Account mortgageAccount = getAccount(customerId, "Mortgage Account");
+					Account transactionalAccount = getAccount(customerId, Constants.TRANSACTION_ACCOUNT);
+					Account mortgageAccount = getAccount(customerId, Constants.MORTGAGE_ACCOUNT);
 					if (transactionalAccount.getBalance() >= 200) {
 						if (mortgageAccount.getBalance() < 0) {
 							Double transactionalAccountBalance = transactionalAccount.getBalance() - 200;
@@ -228,14 +232,14 @@ public class MortgageServiceImpl implements IMortgageService {
 							transactionInTransactional.setFromAccount(transactionalAccount.getAccountNumber());
 							transactionInTransactional.setTransactionDate(LocalDate.now());
 							transactionInTransactional.setTransactionTime(LocalTime.now());
-							transactionInTransactional.setDrOrCr("debit");
+							transactionInTransactional.setDrOrCr(Constants.DEBIT);
 
 							transactionInMortgage.setAccount(mortgageAccount);
 							transactionInMortgage.setAmount(200d);
 							transactionInMortgage.setToAccount(mortgageAccount.getAccountNumber());
 							transactionInMortgage.setTransactionDate(LocalDate.now());
 							transactionInMortgage.setTransactionTime(LocalTime.now());
-							transactionInMortgage.setDrOrCr("credit");
+							transactionInMortgage.setDrOrCr(Constants.CREDIT);
 
 							transactionRepository.save(transactionInTransactional);
 							transactionRepository.save(transactionInMortgage);
@@ -246,9 +250,9 @@ public class MortgageServiceImpl implements IMortgageService {
 				}
 			}
 
-			return "Batch Updated Successfully.";
+			return Constants.BATCH_MONTHLY_SUCCESS_MESSAGE;
 		} else {
-			return "Batch Failed";
+			return Constants.BATCH_MONTHLY_FAILED_MESSAGE;
 		}
 	}
 

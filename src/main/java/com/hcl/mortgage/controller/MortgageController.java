@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hcl.mortgage.dto.AccountDetailsDto;
+import com.hcl.mortgage.dto.LoginDto;
 import com.hcl.mortgage.dto.MortgageDetailsDto;
 import com.hcl.mortgage.dto.MortgageDto;
 import com.hcl.mortgage.dto.TransactionDetailsDto;
@@ -39,10 +40,10 @@ public class MortgageController {
 	}
 	
 	@PutMapping("/login")
-	public ResponseEntity<String> validateLogin(String loginId, String password) {
-		LOGGER.debug("MortgageController:validateLogin {} ", loginId);
-		String response = mortgageService.validateLogin(loginId, password);
-		return new ResponseEntity<>(response, HttpStatus.OK);
+	public ResponseEntity<List<AccountDetailsDto>> validateLogin(@RequestBody LoginDto loginDto) {
+		LOGGER.debug("MortgageController:validateLogin {} ", loginDto.getLoginId());
+		List<AccountDetailsDto> accountDetailsDtos = mortgageService.validateLogin(loginDto);
+		return new ResponseEntity<>(accountDetailsDtos, HttpStatus.OK);
 	}
 	
 	@GetMapping("/accountSummary/{customerId}")
@@ -58,7 +59,7 @@ public class MortgageController {
 		return new ResponseEntity<>(transactionDetailsDtos, HttpStatus.OK);
 	}
 	
-	@GetMapping("/batchUpdate/")
+	@GetMapping("/batchUpdate")
 	public ResponseEntity<String> batchProcessing(){
 		LOGGER.debug("MortgageController:accountSummarry");
 		String response = mortgageService.monthlyPayment();
